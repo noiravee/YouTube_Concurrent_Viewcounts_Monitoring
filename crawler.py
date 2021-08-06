@@ -1,8 +1,10 @@
 import os
+import sys
 import pandas as pd
 import re
 import json
 import time
+import schedule
 from requests.models import Response
 from tqdm import tqdm
 from datetime import datetime
@@ -17,7 +19,8 @@ TODAY = datetime.now().strftime('%y%m%d')
 NOW = datetime.now().strftime('%y%m%d_%H%M')
 RESULT = []
 
-with open ('./apikey.csv', 'r', encoding='UTF-8') as f:
+
+with open ('./apikey.json', 'r', encoding='UTF-8') as f:
     key= json.load(f)
 
 
@@ -32,17 +35,55 @@ def get_videoId(channelId, key, type= 'video', eventType= 'live' ):
     for i in range(len(source['items'])):
         videoId= source['items'][i]['id']['videoId']
         videoIds.append(videoId)
+        
+
     return videoIds
+    
+
+
+def get_concurrent_viewers(videoIds, key):
+    source=[]
+    info=[]
+    for videoId in videoIds: 
+        url = f'https://www.googleapis.com/youtube/v3/videos?&part=snippet,liveStreamingDetails&id={videoId}&key={key}'
+        response= req.get(url)
+        temp= json.loads(response.text)
+        source.append(temp)
+
+
+
+    for video in source:
+        videoId = video['items'][0]['snippet']['id']
+        title = video['items'][0]['snippet']['title']
+        concurrentViewers = video['items'][0]['liveStreamingDetails']['concurrentViewers']
+        actualStartTime = video['items'][0]['liveStreamingDetails']['actualStartTime']
+        scheduledStartTime = video['items'][0]['liveStreamingDetails']['scheduledStartTime']
+        
+        info.append(videoId)
+        info.append(title)
+        info.append(concurrentViewers)
+        info.append(actualStartTime)
+        info.append(scheduledStartTime)
+
+        df= pd.DataFrame(data= info, columns=['videoId','title','concurrentViewers','actualStartTime','scheduledStartTime'])
+        df.to_excel('./concurrent_viewers.xlsx', index=False)
 
     
 
 
-def get_concurrent_viewers(videoId, key):
-    if pd.isnull(videoId):
-        return 
-    url = f'https://www.googleapis.com/youtube/v3/videos?&part=snippet,liveStreamingDetails&id={videoId}&key={key}'
-    response= rq.get(url)
-    live_streaming_details= json.loads(response.text)
+def main():
+    schedule.every(5).minutes.do(
+        get_videoId('UChlgI3UHCOnwUGzWzbJ3H5w', key, type='video', eventType='live'), 
+        get_concurrent_viewers(videoIds, key))
+     
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
+
+if __name__ == '__main__':
+
+    main()
 
 
-get_videoId('UChlgI3UHCOnwUGzWzbJ3H5w', 'AIzaSyAraADzgRxHlDb_CgdtLpREn6uYI0FpziE')
+
+sys.exit(0)
