@@ -4,7 +4,7 @@ import pandas as pd
 import re
 import json
 import time
-import schedule
+
 from requests.models import Response
 from tqdm import tqdm
 from datetime import datetime
@@ -13,6 +13,8 @@ from bs4 import BeautifulSoup
 from collections import OrderedDict
 #from common.telegramMSG import send_telegram_msg
 
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.jobstores.base import JobLookupError
 
 
 TODAY = datetime.now().strftime('%y%m%d')
@@ -53,29 +55,28 @@ def get_concurrent_viewers(videoIds, key):
 
 
     for video in source:
-        videoId = video['items'][0]['snippet']['id']
-        title = video['items'][0]['snippet']['title']
-        concurrentViewers = video['items'][0]['liveStreamingDetails']['concurrentViewers']
-        actualStartTime = video['items'][0]['liveStreamingDetails']['actualStartTime']
-        scheduledStartTime = video['items'][0]['liveStreamingDetails']['scheduledStartTime']
+        data=OrderedDict()
+        data['timestamp']= datetime.now()
+        data['videoId'] = video['items'][0]['id']
+        data['title'] = video['items'][0]['snippet']['title']
+        data['concurrentViewers'] = video['items'][0]['liveStreamingDetails']['concurrentViewers']
+        data['actualStartTime'] = video['items'][0]['liveStreamingDetails']['actualStartTime']
+        data['scheduledStartTime'] = video['items'][0]['liveStreamingDetails']['scheduledStartTime']
         
-        info.append(videoId)
-        info.append(title)
-        info.append(concurrentViewers)
-        info.append(actualStartTime)
-        info.append(scheduledStartTime)
+        
+        result.append(data)
+    
 
-        df= pd.DataFrame(data= info, columns=['videoId','title','concurrentViewers','actualStartTime','scheduledStartTime'])
+        df=pd.DataFrame(result)
         df.to_excel('./concurrent_viewers.xlsx', index=False)
-
     
 
 
 def main():
-    schedule.every(5).minutes.do(
-        get_videoId('UChlgI3UHCOnwUGzWzbJ3H5w', key, type='video', eventType='live'), 
-        get_concurrent_viewers(videoIds, key))
-     
+    schedule.every(5).minutes.do(videoIds= get_videoId('UChlgI3UHCOnwUGzWzbJ3H5w', key, type='video', eventType='live'),
+    schedule.every(5).minutes.do(get_concurrent_viewers(videoIds, key))
+    
+    
     while True:
         schedule.run_pending()
         time.sleep(1)
