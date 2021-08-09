@@ -4,7 +4,6 @@ import pandas as pd
 import re
 import json
 import time
-
 from requests.models import Response
 from tqdm import tqdm
 from datetime import datetime
@@ -20,7 +19,7 @@ from apscheduler.jobstores.base import JobLookupError
 TODAY = datetime.now().strftime('%y%m%d')
 NOW = datetime.now().strftime('%y%m%d_%H%M')
 RESULT = []
-
+channelId ='UChlgI3UHCOnwUGzWzbJ3H5w'
 
 with open ('./apikey.json', 'r', encoding='UTF-8') as f:
     key= json.load(f)
@@ -45,7 +44,7 @@ def get_videoId(channelId, key, type= 'video', eventType= 'live' ):
 
 def get_concurrent_viewers(videoIds, key):
     source=[]
-    info=[]
+    result=[]
     for videoId in videoIds: 
         url = f'https://www.googleapis.com/youtube/v3/videos?&part=snippet,liveStreamingDetails&id={videoId}&key={key}'
         response= req.get(url)
@@ -67,19 +66,29 @@ def get_concurrent_viewers(videoIds, key):
         result.append(data)
     
 
-        df=pd.DataFrame(result)
-        df.to_excel('./concurrent_viewers.xlsx', index=False)
-    
+    df=pd.DataFrame(result)
+    if not os.path.exists('concurrent_viewers.csv'):
+        df.to_csv('concurrent_viewers.csv', index=False, mode='w')
+
+    else:
+        df.to_csv('concurrent_viewers.csv', index=False, mode='a', header=False)
+
 
 
 def main():
-    schedule.every(5).minutes.do(videoIds= get_videoId('UChlgI3UHCOnwUGzWzbJ3H5w', key, type='video', eventType='live'),
-    schedule.every(5).minutes.do(get_concurrent_viewers(videoIds, key))
     
+    videoIds= get_videoId(channelId, key, type= 'video', eventType= 'live' )
     
+    sched= BackgroundScheduler()
+    sched.start()
+    sched.add_job(get_concurrent_viewers, 'interval', minutes=1, id='step2', args=[videoIds, key])
+
+
+
+    count=0
     while True:
-        schedule.run_pending()
-        time.sleep(1)
+        print('running main process...')
+        time.sleep(55)
 
 if __name__ == '__main__':
 
